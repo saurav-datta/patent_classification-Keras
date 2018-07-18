@@ -7,6 +7,7 @@ from os.path import join
 import re
 from collections import defaultdict
 import configparser
+import shutil
 
 # ### Using XPATH
 
@@ -166,10 +167,19 @@ def get_labels():
     labels_string = "|".join(str(e) for e in labels_list)
     return labels_string
 
+######################## Remove existing files
+def remove_files():
+    for filename in os.listdir(outDIR):
+        filepath = os.path.join(outDIR, filename)
+        try:
+            shutil.rmtree(filepath)
+        except OSError:
+            os.remove(filepath)
+    
 ######################## MAIN ########################
 
 config = configparser.ConfigParser()
-config.read('../config/config.ini')
+config.read('../config/preparation.ini')
 
 inDIR = config['DEFAULT']['inDIR']
 pattern = config['DEFAULT']['pattern']
@@ -192,12 +202,15 @@ cnt_files = 0
 
 
 # Read label files
-
 label_dict = {}
 label_dict = read_label_files()
-print("Completed label_dict")
+
+# For brevity in output file fileNameToDocNumber.txt
 pattern_path = re.compile("^"+path_string_to_replace)
 
+#Removing existing files
+
+remove_files()
 
 for dName, sdName, fList in os.walk(inDIR):
     outer_break_flag = 0
