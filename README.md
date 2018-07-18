@@ -1,6 +1,14 @@
 # W266-Final-Project
 Multi-Label Patent Classification with NLP and Neural Networks
 
+## Terminology
+International Patent Classification (IPC): 
+http://www.wipo.int/classifications/ipc/ipcpub/?notion=scheme&version=20180101&symbol=none&menulang=en&lang=en&viewmode=f&fipcpc=no&showdeleted=yes&indexes=no&headings=yes&notes=yes&direction=o2n&initial=A&cwid=none&tree=no&searchmode=smart
+
+Patent Automatic Classification (PAC): A PAC system is designed for classifying patents into corresponding categories.
+
+continuous bag-of-words (CBOW) algorithm: map words in the patent text into word embeddings
+
 ## Data Cleaning and Pre-processing
 
 ### Section selection 
@@ -32,7 +40,7 @@ Use CBOW to pre-train our M-CLEF corpora into word embeddings (pick embedding di
 `Triumph`: lets use a smaller max_len for title and abstract 
 
 ## Train Val Test Split
-
+training, validation and test datasets, containing 72,532, 18,133, and 2679 mechanical patent documents
 
 ## Baseline Models
 *CBOW is applied for word embeddings prior to all three models*
