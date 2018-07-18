@@ -168,8 +168,6 @@ def get_labels():
 
 ######################## MAIN ########################
 
-print("MAIN started")
-
 config = configparser.ConfigParser()
 config.read('../config/config.ini')
 
@@ -188,8 +186,6 @@ labelDIR = config['DEFAULT']['labelDIR']
 limit_files_write = config.getint('DEFAULT','limit_files_write')
 path_string_to_replace = config['DEFAULT']['path_string_to_replace']
 
-print("Config completed")
-
 fileList = []
 doc_number_filename = defaultdict(list)
 cnt_files = 0
@@ -202,19 +198,16 @@ label_dict = read_label_files()
 print("Completed label_dict")
 pattern_path = re.compile("^"+path_string_to_replace)
 
-print("inDIR",inDIR)
 
-# for dName, sdName, fList in os.walk(inDIR):
-#     print("dName, sdName, fList", dName, sdName, fList)
 for dName, sdName, fList in os.walk(inDIR):
-    print("dName, sdName, fList",dName, sdName, fList)
     outer_break_flag = 0
     for fileName in fList:
-        print("fileName",fileName)
+        # Match search pattern
         if fnmatch.fnmatch(fileName, pattern):
-            # Match search string
             cnt_files = cnt_files + 1
-            if (cnt_files == limit_files_write):
+            
+            # Controls the number of files read
+            if cnt_files == limit_files_write:
                 outer_break_flag = 1
                 break
 
