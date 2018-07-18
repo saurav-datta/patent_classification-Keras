@@ -19,6 +19,8 @@ continuous bag-of-words (CBOW) algorithm: map words in the patent text into word
 - claims
 - description
 
+- maybe including meta-information? One paper did and improved performance
+
 ### Labels 
 Analysis of the classification labels: 
 How many labels (i.e. classes) total do we have (paper has 96)? 
@@ -27,6 +29,9 @@ Avg. Number of labels per patent? Paper ~ 1.4
 Labels represented in a matrix of 1s and 0s where the rows are the patents and columns all possible labels. 
 
 Y == label matrix 
+
+Ideally we want to use the most granular level for classification. 
+We can maybe test performance on different levels.
 
 ### Dimensions 
 MAX_LEN == maximum length of text for each input section (title, abstract, claims etc.)
