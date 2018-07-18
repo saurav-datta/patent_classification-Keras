@@ -201,8 +201,10 @@ def get_labels( l_file_path_new,  l_app_ref_doc_num):
     return labels_string
 
 ######################## Remove existing files
-def remove_files(dir_list=[]):
-    new_dir_list = [ dir_name+"_zipped" for dir_name in dir_list]
+def remove_files(dir_list=[], remove_zip=False):
+    new_dir_list = []
+    if remove_zip is True:
+        new_dir_list = [ dir_name+"_zipped" for dir_name in dir_list]
     new_dir_list.extend(dir_list)
     for dir_name in new_dir_list:
         print("remove_files: working on {}".format(dir_name))
@@ -279,7 +281,7 @@ pattern_path = re.compile("^"+path_string_to_replace)
 #Remove existing files. The logic will also consider *_zipped directories
 
 dir_to_delete_list=[outDIR,errorDIR]
-remove_files(dir_to_delete_list)
+remove_files(dir_to_delete_list, remove_zip=True)
 
 
 docNumber_date_dict={}
@@ -340,9 +342,12 @@ for dName, sdName, fList in os.walk(inDIR):
     if outer_break_flag == 1:
         break
 
-# Compress output for sharing. The logic will also consider *_zipped directories
+# Compress output for sharing.
 dir_to_zip_list=[outDIR,errorDIR,logDIR]
 zip_output(dir_to_zip_list)
+
+# Not removing zipped files
+remove_files(dir_to_zip_list)
 
 
 
