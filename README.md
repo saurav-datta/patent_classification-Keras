@@ -1,5 +1,5 @@
 # W266-Final-Project
-Patent Classification with NLP
+Multi-Label Patent Classification with NLP and Neural Networks
 
 ## Data Cleaning and Pre-processing
 
@@ -8,7 +8,6 @@ Patent Classification with NLP
 - abstract
 - claims
 - description
-
 
 ### Labels 
 Analysis of the classification labels: 
