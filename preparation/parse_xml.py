@@ -19,7 +19,7 @@ from os.path import join
 ######################## application-reference_doc-number
 def get_app_ref_doc_number():
     for path in root.findall("./bibliographic-data/application-reference/document-id/doc-number"):
-        app_ref_doc_num = path.text
+        app_ref_doc_num = path.text.replace('|', ' ')
     return app_ref_doc_num
 
 
@@ -35,8 +35,9 @@ def get_application_date():
 def get_classification_ipcr():
     classification_text = ""
     label_lookup_key_list = []
+    label_sub_class_lookup_key_list = []
     for path in root.findall("./bibliographic-data/technical-data/classifications-ipcr/classification-ipcr"):
-        path_text = path.text.strip()
+        path_text = (path.text or '').replace('|', ' ').strip()
         first_14 = path_text[:14]
         from_15 = path_text[14:].strip()
         first_14_list = first_14.split()
@@ -48,11 +49,22 @@ def get_classification_ipcr():
             first_14 = first_14.strip()
         #         print("path_text,first_14","|"+path_text+"|"+first_14+"|")
         
+        # first_14 now contains the most granular label padded with zeroes
+        
+        # label_sub_class such as H01M
+        label_sub_class = first_14[0:4]
+        
         label_lookup_key_list.append(first_14)
+        label_sub_class_lookup_key_list.append(label_sub_class)
+        
         #         classification_text = (classification_text + "|" + (first_14 + "~" + from_15).strip()).strip('|')
         classification_text = (classification_text + "|" + first_14 + "~" + from_15).strip('|')
     
-    return (classification_text, label_lookup_key_list)
+    # deduping
+    label_lookup_key_list = list(set(label_lookup_key_list))
+    label_sub_class_lookup_key_list = list(set(label_sub_class_lookup_key_list))
+    
+    return (classification_text, label_lookup_key_list, label_sub_class_lookup_key_list)
 
 
 ######################## invention-title in English
@@ -62,7 +74,7 @@ def get_invention_title():
     for path in root.findall("./bibliographic-data/technical-data/invention-title"):
         lang = path.get("lang")
         if lang == "EN":
-            inv_title = path.text
+            inv_title = (path.text or '').replace('|', ' ')
     
     # TODO: Limit to top 150 words instead of first 150
     # Truncating to 150 words
@@ -80,7 +92,7 @@ def get_abstract_text():
         if lang == "EN":
             abstract_text = ""
             for child in path.getchildren():
-                abstract_text_tmp = child.text
+                abstract_text_tmp = (child.text or '').replace('|', ' ')
                 abstract_text = abstract_text + " " + (abstract_text_tmp or '')
             abstract_text = re.sub(pattern, '', abstract_text)
             abstract_text = re.sub('\s+', ' ', abstract_text.replace('\\n', ' ')).strip()
@@ -102,7 +114,7 @@ def get_description_text():
             desc_text = ""
             for child in path.getchildren():
                 # or is used for replacing None
-                desc_text = desc_text + " " + (child.text or '')
+                desc_text = desc_text + " " + (child.text or '').replace('|', ' ')
             # replacing newlines and multiple spaces
             desc_text = re.sub('\s+', ' ', desc_text.replace('\\n', ' ')).strip()
     
@@ -125,8 +137,9 @@ def get_claim_text():
         if lang == "EN":
             claim_text = ""
             for child in path.getchildren():
-                claim_text_tmp = child.find('claim-text').text
-                claim_text = claim_text + " " + (claim_text_tmp or '')
+                claim_text_tmp = (child.find('claim-text').text or '').replace('|', ' ')
+                # claim_text = claim_text + " " + (claim_text_tmp or '')
+                claim_text = claim_text + " " + claim_text_tmp
             claim_text = re.sub(pattern, '', claim_text)
             claim_text = re.sub('\s+', ' ', claim_text.replace('\\n', ' ')).strip()
     
@@ -162,8 +175,12 @@ def write_files():
         write_str = app_ref_doc_num + "|" + claim_text
         f.write(write_str + '\n')
     
-    with open(join(outDIR, fileDocNumberToLabels), "a+") as f:
-        write_str = app_ref_doc_num + "|" + claim_text
+    # with open(join(outDIR, fileDocNumberToLabels), "a+") as f:
+    #     write_str = app_ref_doc_num + "|" + labels
+    #     f.write(write_str + '\n')
+    
+    with open(join(outDIR, fileDocNumberToLabelSubClass), "a+") as f:
+        write_str = app_ref_doc_num + "|" + label_sub_class
         f.write(write_str + '\n')
 
 
@@ -176,15 +193,16 @@ def read_label_files():
             if fnmatch.fnmatch(fileName, labelPattern):
                 file_path = join(dName, fileName)
                 with open(file_path, 'r') as fp:
-                    line = fp.readline().rstrip('\r\n')
+                    line = fp.readline().rstrip('\r\n').replace('|', ' ')
                     while line:
                         (key, value) = re.split(r'\t+', line)
+                        value = re.sub(label_pattern_to_replace, '', value)
                         label_dict[key] = (fileName, value)
                         line = fp.readline().rstrip('\r\n')
     return label_dict
 
 
-######################## Get the labels
+######################## Get the most granular labels
 
 def get_labels(l_file_path_new, l_app_ref_doc_num):
     labels_list = []
@@ -201,9 +219,41 @@ def get_labels(l_file_path_new, l_app_ref_doc_num):
                 f.write(error_message + '\n')
             
             continue
-        labels_list.append(label_dict[key])
-    labels_string = "|".join(str(e) for e in labels_list)
+        labels_list.append(label_dict[key][1])
+    
+    if len(labels_list) == 0:
+        labels_string = 'NA'
+    else:
+        labels_string = "|".join(str(e) for e in labels_list)
+    
     return labels_string
+
+
+######################## Get the label sub class
+
+def get_label_sub_class(l_file_path_new, l_app_ref_doc_num):
+    label_sub_class_list = []
+    for key in label_sub_class_lookup_key_list:
+        if key not in label_dict.keys():
+            # Checks for missing label keys missing in label source and writes them to error files
+            error_message = ("LabelSubClassKey:{key}|File:{l_file_path_new}|AppRefDocNumber:{l_app_ref_doc_num}"
+                .format(
+                    key=key,
+                    l_file_path_new=l_file_path_new,
+                    l_app_ref_doc_num=l_app_ref_doc_num))
+            
+            with open(join(errorDIR, fileMissingLabel), "a+") as f:
+                f.write(error_message + '\n')
+            
+            continue
+        label_sub_class_list.append(label_dict[key][1])
+    
+    if len(label_sub_class_list) == 0:
+        label_sub_class_string = 'NA'
+    else:
+        label_sub_class_string = "|".join(str(e) for e in label_sub_class_list)
+    
+    return label_sub_class_string
 
 
 ######################## Remove existing files
@@ -259,6 +309,7 @@ fileDocNumberToAbsText = config['DEFAULT']['fileDocNumberToAbsText']
 fileDocNumberToDescText = config['DEFAULT']['fileDocNumberToDescText']
 fileDocNumberToClaimText = config['DEFAULT']['fileDocNumberToClaimText']
 fileDocNumberToLabels = config['DEFAULT']['fileDocNumberToLabels']
+fileDocNumberToLabelSubClass = config['DEFAULT']['fileDocNumberToLabelSubClass']
 fileMissingLabel = config['DEFAULT']['fileMissingLabel']
 
 labelPattern = config['DEFAULT']['labelPattern']
@@ -271,7 +322,9 @@ cnt_files = 0
 
 log_file = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log"
 
-# Read label files
+#### Read label files
+# label_pattern_to_replace defines everything within brackets. Such text, including the brackets will be deleted.
+label_pattern_to_replace = re.compile("\(.*\)")
 label_dict = {}
 label_dict = read_label_files()
 
@@ -316,8 +369,14 @@ for dName, sdName, fList in os.walk(inDIR):
             docNumber_date_dict[app_ref_doc_num] = application_date
             
             label_lookup_key_list = []
-            (classification_text, label_lookup_key_list) = get_classification_ipcr()
+            label_sub_class_lookup_key_list = []
+            (classification_text, label_lookup_key_list, label_sub_class_lookup_key_list) = get_classification_ipcr()
+            
             labels = get_labels(file_path_new, app_ref_doc_num)
+            label_sub_class = get_label_sub_class(file_path_new, app_ref_doc_num)
+            
+            if label_sub_class == 'NA':
+                continue
             
             inv_title = get_invention_title()
             if inv_title == 'NA':
