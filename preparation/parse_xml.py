@@ -11,6 +11,8 @@ import shutil
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from os.path import join
+import time
+from random import randint
 
 
 # ### Using XPATH
@@ -134,11 +136,12 @@ def get_claim_text():
         if lang == "EN":
             claim_text = ""
             for child in path.getchildren():
-                claim_text_tmp = (child.find('claim-text').text or '').replace('|', ' ')
-                # claim_text = claim_text + " " + (claim_text_tmp or '')
-                claim_text = claim_text + " " + claim_text_tmp
-            claim_text = re.sub(pattern, '', claim_text)
-            claim_text = re.sub('\s+', ' ', claim_text.replace('\\n', ' ')).strip()
+                for gchild in child.findall('claim-text'):
+                    claim_text_tmp = (gchild.text or '').replace('|', ' ')
+                    claim_text = claim_text + " " + claim_text_tmp
+    
+    claim_text = re.sub(pattern, '', claim_text)
+    claim_text = re.sub('\s+', ' ', claim_text.replace('\\n', ' ')).strip()
     
     # Truncating to 150 words
     # claim_text = " ".join(claim_text.split()[:limit_word_count])
@@ -292,6 +295,7 @@ def zip_output(dir_list=[]):
       
 
 ######################## MAIN ########################
+start = time.clock()
 
 config = configparser.ConfigParser()
 config.read('../config/preparation.ini')
@@ -322,9 +326,12 @@ limit_word_count = config.getint('DEFAULT', 'limit_word_count')
 
 label_sub_class_filter = config['DEFAULT']['label_sub_class_filter']
 
+detailed_log_flag = config.getint('DEFAULT', 'detailed_log_flag')
+
 fileList = []
 doc_number_filename = defaultdict(list)
-cnt_files = 0
+cnt_files_out = 0
+cnt_files_seen = 0
 
 log_file = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log"
 
@@ -351,9 +358,9 @@ for dName, sdName, fList in os.walk(inDIR):
     for fileName in fList:
         # Match search pattern
         if fnmatch.fnmatch(fileName, pattern):
-            
+            cnt_files_seen = cnt_files_seen + 1
             # Controls the number of files read
-            if cnt_files == limit_files_write:
+            if cnt_files_out == limit_files_write:
                 outer_break_flag = 1
                 break
             
@@ -376,13 +383,10 @@ for dName, sdName, fList in os.walk(inDIR):
             if app_ref_doc_num in docNumber_date_dict.keys():
                 existing_patent_date = docNumber_date_dict[app_ref_doc_num]
                 with open(join(logDIR, log_file), "a+") as f:
-                    write_str = ("doc-number {}, application_date {} has been seen with date {}".format(app_ref_doc_num,
-                                                                                                        existing_patent_date,
-                                                                                                        application_date))
-                    f.write(write_str + '\n')
+                    if detailed_log_flag == 0:
+                        write_str = ("Skipped: doc-number {}, application_date {} filename {} has been seen with date {}".format(app_ref_doc_num,application_date,file_path_new, existing_patent_date))
+                        f.write(write_str + '\n')
                 continue
-            
-            docNumber_date_dict[app_ref_doc_num] = application_date
             
             # label_lookup_key_list = []
             label_sub_class_lookup_key_list = []
@@ -408,26 +412,47 @@ for dName, sdName, fList in os.walk(inDIR):
             label_sub_class = get_label_sub_class(file_path_new, app_ref_doc_num)
             
             if label_sub_class == 'NA':
+                if detailed_log_flag == 0:
+                    with open(join(logDIR, log_file), "a+") as f:
+                        write_str = ("Skipped at label_sub_class: filename {} doc-number {}".format(file_path_new,app_ref_doc_num))
+                        f.write(write_str + '\n')
                 continue
             
             inv_title = get_invention_title()
             if inv_title == 'NA':
+                if detailed_log_flag == 0:
+                    with open(join(logDIR, log_file), "a+") as f:
+                        write_str = ("Skipped at inv_title: filename {} doc-number {}".format(file_path_new,app_ref_doc_num))
+                        f.write(write_str + '\n')
                 continue
             
             abstract_text = get_abstract_text()
             if abstract_text == 'NA':
+                if detailed_log_flag == 0:
+                    with open(join(logDIR, log_file), "a+") as f:
+                        write_str = ("Skipped at abstract_text: filename {} doc-number {}".format(file_path_new,app_ref_doc_num))
+                        f.write(write_str + '\n')
                 continue
             
             desc_text = get_description_text()
             if desc_text == 'NA':
+                if detailed_log_flag == 0:
+                    with open(join(logDIR, log_file), "a+") as f:
+                        write_str = ("Skipped at desc_text: filename {} doc-number {}".format(file_path_new,app_ref_doc_num))
+                        f.write(write_str + '\n')
                 continue
             
             claim_text = get_claim_text()
             if claim_text == 'NA':
+                if detailed_log_flag == 0:
+                    with open(join(logDIR, log_file), "a+") as f:
+                        write_str = ("Skipped at claim_text: filename {} doc-number {}".format(file_path_new,app_ref_doc_num))
+                        f.write(write_str + '\n')
                 continue
-            
-            cnt_files = cnt_files + 1
-            
+
+            cnt_files_out = cnt_files_out + 1
+            docNumber_date_dict[app_ref_doc_num] = application_date
+
             write_files()
     
     if outer_break_flag == 1:
@@ -438,4 +463,10 @@ dir_to_zip_list = [outDIR, errorDIR, logDIR]
 zip_output(dir_to_zip_list)
 
 # Not removing zipped files
+dir_to_zip_list = [outDIR, errorDIR]
 remove_files(dir_to_zip_list)
+
+with open(join(logDIR, log_file), "a+") as f:
+    if detailed_log_flag == 0:
+        write_str = ( "Time taken:{}\ncnt_files_seen:{} cnt_files_out:{}".format(str(time.clock() - start),str(cnt_files_seen), str(cnt_files_out)))
+        f.write(write_str + '\n')
